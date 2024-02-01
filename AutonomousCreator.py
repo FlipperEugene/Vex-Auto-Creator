@@ -6,21 +6,31 @@ clock = pygame.time.Clock()
 pygame.init()
 
 pygame.display.set_caption("Autonomous Creator")
+"""
+Left Click normal point
+Right Click Backwards point
+CTRL Left Click Intake on and go to point
+CTRL Right Click Intake off and go to point
+
+"""
+
+
 
 TARGET_FPS = 10
 
 FIELD_WIDTH = 366
 FIELD_HEIGHT = 366
-Starting_Red = True
+Starting_Red = False
 
 if Starting_Red:
     STARTING_PLACE_X = 75  # robot placement from the left of the field
     STARTING_PLACE_Y = 0  # robot placement from the bottem of the field
     AUTONOMOUS_FILENAME = "autonomousRed.af"
-if not Starting_Red:
+else:
     STARTING_PLACE_X = 76  # robot placement from the left of the field
     STARTING_PLACE_Y = 330  # robot placement from the bottem of the field
     AUTONOMOUS_FILENAME = "autonomousBlue.af"
+
 ROBOT_WIDTH = 32  # robot width in cm
 ROBOT_HEIGHT = 36  # robot Height in cm
 ROBOT_COLOR = (255, 255, 255)
@@ -28,7 +38,9 @@ ROBOT_COLOR = (255, 255, 255)
 BACKGROUND_PATH = "Field.jpeg"
 
 TYPE_NORMAL = 1
-TYPE_ACTION = 2
+TYPE_REVERSE = 2
+TYPE_PICKUP = 3
+TYPE_PICKUP_STOP = 4
 
 FIELD_IMAGE = pygame.transform.scale(pygame.image.load(BACKGROUND_PATH), (int(FIELD_WIDTH), int(FIELD_HEIGHT)))
 
@@ -49,48 +61,58 @@ class Point:
 
 points = [Point((STARTING_PLACE_X + (ROBOT_HEIGHT / 2), STARTING_PLACE_Y + (ROBOT_WIDTH / 2)), TYPE_NORMAL)]
 
-distances = []
-angles = []
 
-
-def write_autonomous_to_file(file_path, distances, angles):
+def write_autonomous_to_file_from_points(file_path, points):
     with open(file_path, "w") as file:
-        for distance, angle in zip(distances, angles):
+        for i, point in enumerate(points):
+            if i == 0:
+                continue
+            last_point = points[i-1]
+            distance = last_point.distance_to(new_point)
+            angle_from_last_point_to_current_point = last_point.angle_to(new_point)
+            if point.type_ == TYPE_NORMAL:
+                angle_from_last_point_to_current_point += 0
+            elif point.type_ == TYPE_REVERSE:
+                angle_from_last_point_to_current_point += math.pi
+            elif point.type_ == TYPE_PICKUP:
+                file.write("intake_in\n")
+            elif point.type_ == TYPE_PICKUP_STOP:
+                file.write("intake_stop\n")
+
             if Starting_Red:
-                file.write(f"{round(distance, 3)}|{round(angle, 3)}\n")
+                file.write(f"{round(distance, 3)}|{round(math.degrees(angle_from_last_point_to_current_point), 3)}\n")
             if not Starting_Red:
-                file.write(f"{round(distance, 3)}|{round(angle / math.degrees(180), 3)}\n")
+                file.write(f"{round(distance, 3)}|{round(math.degrees(angle_from_last_point_to_current_point) - 180, 3)}\n")
 
 
 running = True
 while running:
+    keys = pygame.key.get_pressed()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
             continue
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if not points:
-                continue
-
             new_point = Point(event.pos, TYPE_NORMAL)
-            last_point = points[-1]
-            distance = last_point.distance_to(new_point)
-            angle_from_last_point_to_current_point = last_point.angle_to(new_point)
-            if event.button == 1:
-                distances.append(distance)
-                angles.append(math.degrees(angle_from_last_point_to_current_point))
-                new_point.type_ = TYPE_NORMAL
-            elif event.button == 3:
-                distances.append(distance)
-                angles.append(math.degrees(angle_from_last_point_to_current_point + math.pi))
-                new_point.type_ = TYPE_ACTION
+            if keys[pygame.K_LCTRL]:
+                if event.button == 1:
+                    new_point.type_ = TYPE_PICKUP
+                elif event.button == 3:
+                    new_point.type_ = TYPE_PICKUP_STOP
+            else:
+                if event.button == 1:
+                    new_point.type_ = TYPE_NORMAL
+                elif event.button == 3:
+                    new_point.type_ = TYPE_REVERSE
             points.append(new_point)
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_w:
-                write_autonomous_to_file(AUTONOMOUS_FILENAME, distances, angles)
+                write_autonomous_to_file_from_points(AUTONOMOUS_FILENAME, points)
+            elif event.key == pygame.K_b:
+                write_autonomous_to_file_from_points(AUTONOMOUS_FILENAME, points)
 
-    # Draw the resized image on the screen
+    # Draw the field image on the screen
     screen.blit(FIELD_IMAGE, (0, 0))
     pygame.draw.rect(screen, ROBOT_COLOR,
                      (STARTING_PLACE_X, STARTING_PLACE_Y, ROBOT_HEIGHT, ROBOT_WIDTH))
@@ -98,8 +120,14 @@ while running:
     for point in points:
         if point.type_ == TYPE_NORMAL:
             color = (255, 0, 0)
-        elif point.type_ == TYPE_ACTION:
+        elif point.type_ == TYPE_REVERSE:
             color = (255, 255, 0)
+        elif point.type_ == TYPE_PICKUP:
+            color = (0, 255, 255)
+        elif point.type_ == TYPE_PICKUP_STOP:
+            color = (255, 0, 255)
+        else:
+            color = (255, 255, 255)
         pygame.draw.circle(screen, color, point.position, 5)
 
     pygame.display.flip()
