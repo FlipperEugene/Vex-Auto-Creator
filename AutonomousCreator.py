@@ -5,6 +5,7 @@ clock = pygame.time.Clock()
 
 pygame.init()
 
+
 pygame.display.set_caption("Autonomous Creator")
 """
 Left Click normal point
@@ -20,7 +21,7 @@ TARGET_FPS = 10
 
 FIELD_WIDTH = 366
 FIELD_HEIGHT = 366
-Starting_Red = False
+Starting_Red = True
 
 if Starting_Red:
     STARTING_PLACE_X = 75  # robot placement from the left of the field
@@ -36,7 +37,9 @@ ROBOT_HEIGHT = 36  # robot Height in cm
 ROBOT_COLOR = (255, 255, 255)
 
 BACKGROUND_PATH = "Field.jpeg"
-
+is_exe = False
+if is_exe:
+    BACKGROUND_PATH = "_internal/Field.jpeg"
 TYPE_NORMAL = 1
 TYPE_REVERSE = 2
 TYPE_PICKUP = 3
@@ -64,26 +67,29 @@ points = [Point((STARTING_PLACE_X + (ROBOT_HEIGHT / 2), STARTING_PLACE_Y + (ROBO
 
 def write_autonomous_to_file_from_points(file_path, points):
     with open(file_path, "w") as file:
+        cumulative_angle = 0  # Initialize cumulative angle
         for i, point in enumerate(points):
             if i == 0:
                 continue
-            last_point = points[i-1]
-            distance = last_point.distance_to(new_point)
-            angle_from_last_point_to_current_point = last_point.angle_to(new_point)
+            last_point = points[i - 1]
+            distance = last_point.distance_to(point)
+            angle_from_last_point_to_current_point = last_point.angle_to(point)
+            cumulative_angle += angle_from_last_point_to_current_point
             if point.type_ == TYPE_NORMAL:
                 angle_from_last_point_to_current_point += 0
             elif point.type_ == TYPE_REVERSE:
-                angle_from_last_point_to_current_point += math.pi
+                angle_from_last_point_to_current_point -= math.pi
+                distance = distance * -1
             elif point.type_ == TYPE_PICKUP:
                 file.write("intake_in\n")
-            elif point.type_ == TYPE_PICKUP_STOP:
-                file.write("intake_stop\n")
+
 
             if Starting_Red:
-                file.write(f"{round(distance, 3)}|{round(math.degrees(angle_from_last_point_to_current_point), 3)}\n")
+                file.write(f"{round(distance, 3)}|{round(math.degrees(angle_from_last_point_to_current_point), 2)}\n")
             if not Starting_Red:
                 file.write(f"{round(distance, 3)}|{round(math.degrees(angle_from_last_point_to_current_point) - 180, 3)}\n")
-
+            if point.type_ == TYPE_PICKUP_STOP:
+                file.write("intake_stop\n")
 
 running = True
 while running:
